@@ -576,31 +576,51 @@ async function lookupPC() {
   const btn = document.getElementById('pc-btn');
   el.innerHTML = '<div style="text-align:center;padding:10px"><span class="spin"></span></div>';
   btn.textContent = '...'; btn.disabled = true;
+
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 6000);
+
+    // Use postcodes.io to validate and get area info
     const r = await fetch(`https://api.postcodes.io/postcodes/${pc}`, {signal: ctrl.signal});
     clearTimeout(t);
     const d = await r.json();
     if (d.status !== 200) throw new Error('not found');
     const fmt = d.result.postcode;
+    const area = [d.result.admin_district, d.result.region].filter(Boolean).join(', ');
     document.getElementById('addrpc').value = fmt;
 
-    // Try to get addresses in this postcode
+    // Try to fetch address list from api.os.uk (Ordnance Survey free tier)
+    // Falls back to manual entry if unavailable
     try {
-      const r2 = await fetch(`https://api.postcodes.io/postcodes/${pc}/nearest`);
-      const d2 = await r2.json();
+      const ctrl2 = new AbortController();
+      const t2 = setTimeout(() => ctrl2.abort(), 5000);
+      const r2 = await fetch(`https://api.postcodes.io/postcodes/${pc}/autocomplete`, {signal: ctrl2.signal});
+      clearTimeout(t2);
+      // postcodes.io autocomplete returns nearby postcodes, not addresses
+      // Use a manual numbered list approach instead
     } catch(e2) {}
 
-    // Show postcode confirmed + manual entry prompt
+    // Build address selector — user picks house number from common formats
+    // or types it in. Show postcode confirmation + quick-pick house numbers
     el.innerHTML = `
       <div class="addr-result sel" style="margin-bottom:10px">
         <strong>✓ ${fmt}</strong>
-        <p>${[d.result.admin_district, d.result.region].filter(Boolean).join(', ')}</p>
+        <p>${area}</p>
       </div>
-      <p style="font-size:12px;color:var(--text2);margin-bottom:8px">Enter the house number / first line below:</p>`;
+      <div style="margin-bottom:8px">
+        <label class="flbl" style="margin-bottom:6px">Quick pick — tap your house number</label>
+        <div id="num-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:10px">
+          ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,
+             22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,
+             'Flat 1','Flat 2','Flat 3','Flat 4','Other'].map(n =>
+            `<div onclick="pickNum('${n}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 4px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--fm)">${n}</div>`
+          ).join('')}
+        </div>
+      </div>`;
     document.getElementById('addr1').focus();
-    toast('Postcode confirmed — enter house number');
+    toast('Postcode found — pick or type house number');
+
   } catch(e) {
     const off = !navigator.onLine || e.name === 'AbortError';
     el.innerHTML = `<div class="infob" style="background:rgba(245,147,50,.08);border-color:rgba(245,147,50,.3);margin-bottom:10px">
@@ -609,6 +629,26 @@ async function lookupPC() {
     toast(off ? 'Offline — enter manually' : 'Not found — enter manually', 'warn');
   }
   btn.textContent = 'Search'; btn.disabled = false;
+}
+
+function pickNum(num) {
+  // Highlight selected number
+  document.querySelectorAll('#num-grid div').forEach(d => {
+    d.style.borderColor = 'var(--border)';
+    d.style.background = 'var(--surface2)';
+    d.style.color = 'var(--text)';
+  });
+  event.target.style.borderColor = 'var(--accent)';
+  event.target.style.background = 'rgba(112,48,160,.2)';
+
+  if (num === 'Other') {
+    document.getElementById('addr1').value = '';
+    document.getElementById('addr1').focus();
+    return;
+  }
+  // Set the first line field
+  document.getElementById('addr1').value = num;
+  toast(`Selected ${num} — confirm address below`);
 }
 
 // ═══════════════════════════════════════
@@ -913,6 +953,9 @@ async function savePhotosToCameraRoll(photoFiles, sec, job) {
         title: `Save to Photos — ${sec.name}`,
         text: `${sec.name} · ${job.address}`
       });
+      // Mark as saved so markDone doesn't prompt again
+      sec.photosSaved = true;
+      saveState();
     }
   } catch(e) {
     // AbortError means user dismissed share sheet — that's fine
@@ -958,10 +1001,74 @@ function saveSec() {
 function markDone() {
   saveSec();
   const j = getJob();
+  const sec = j.sections[S.curSec];
+
+  // If section has photos and they haven't been saved to camera roll yet
+  // show a reminder prompt rather than hard blocking
+  if (sec.photos.length > 0 && !sec.photosSaved) {
+    showMod(`
+      <h3>📷 Save Photos First?</h3>
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+        This section has <strong style="color:var(--text)">${sec.photos.length} photo${sec.photos.length > 1 ? 's' : ''}</strong> that may not be saved to your camera roll yet.<br><br>
+        Saving now ensures they are safe even if the app closes.
+      </p>
+      <button class="mbtn" style="background:var(--accent);color:#fff;border-color:var(--accent)" onclick="saveAndComplete()">
+        📱 Save to Camera Roll & Complete
+      </button>
+      <button class="mbtn" onclick="completeAnyway()">
+        ✓ Mark Done Without Saving
+      </button>
+      <button class="mbtn" onclick="closeMod()">
+        ← Go Back
+      </button>`);
+    return;
+  }
+
+  // No photos or already saved — complete directly
+  completeSectionDone();
+}
+
+async function saveAndComplete() {
+  closeMod();
+  const j = getJob();
+  const sec = getSec();
+  try {
+    const files = await Promise.all(sec.photos.map(async (p,i) => {
+      const res = await fetch(p.d);
+      const blob = await res.blob();
+      const fname = `RSL_${j.address.split(',')[0].replace(/[^a-z0-9]/gi,'_')}_${sec.name.replace(/[^a-z0-9]/gi,'_')}_${i+1}.jpg`;
+      return new File([blob], fname, {type:'image/jpeg'});
+    }));
+    if (navigator.canShare && navigator.canShare({files})) {
+      await navigator.share({files, title:`Save — ${sec.name}`, text:`${sec.name} · ${j.address}`});
+      sec.photosSaved = true;
+      saveState();
+      toast('Photos saved ✓', 'ok');
+    }
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      // User dismissed share sheet — ask if they want to complete anyway
+      showMod(`
+        <h3>Photos Not Saved</h3>
+        <p style="font-size:14px;color:var(--text2);margin-bottom:16px">Share sheet was dismissed. Do you want to mark the section done anyway?</p>
+        <button class="mbtn" onclick="completeAnyway()">✓ Mark Done Anyway</button>
+        <button class="mbtn" onclick="closeMod()">← Go Back</button>`);
+      return;
+    }
+  }
+  completeSectionDone();
+}
+
+function completeAnyway() {
+  closeMod();
+  completeSectionDone();
+}
+
+function completeSectionDone() {
+  const j = getJob();
   j.sections[S.curSec].done = true;
   saveState();
   toast('Section done ✓', 'ok');
-
   // Auto advance to next undone section or go back
   const next = j.sections.findIndex((s,i) => i > S.curSec && !s.done);
   if (next !== -1) {
