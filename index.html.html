@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RSL Assess">
+<title>RSL Energy — RetroAssess v1.2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #1a1a1a;
+    --surface: #242424;
+    --surface2: #2e2e2e;
+    --border: #3d3d3d;
+    --accent: #7030A0;
+    --accent2: #9040c0;
+    --warn: #f59332;
+    --danger: #dc2626;
+    --text: #f5f5f5;
+    --text2: #a8a8a8;
+    --text3: #666666;
+    --epc: #4a9fd4;
+    --cr: #9040c0;
+    --both: #7030A0;
+    --radius: 8px;
+    --font-head: 'Barlow Condensed', sans-serif;
+    --font-body: 'Barlow', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--accent);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-logo {
+    font-family: var(--font-head);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+  .header-logo span { color: var(--text2); font-weight: 400; }
+  .header-sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .btn-back {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-back:active { opacity: 0.7; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; padding: 20px; max-width: 900px; margin: 0 auto; }
+  .screen.active { display: block; }
+
+  /* ── HOME SCREEN ── */
+  .home-greeting {
+    margin-bottom: 24px;
+  }
+  .home-greeting h1 {
+    font-family: var(--font-head);
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    line-height: 1.1;
+  }
+  .home-greeting p {
+    color: var(--text2);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .date-badge {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 20px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    padding: 18px 24px;
+    border-radius: var(--radius);
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:active { opacity: 0.8; }
+  .btn-secondary {
+    width: 100%;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 16px 24px;
+    border-radius: var(--radius);
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    transition: opacity 0.15s;
+  }
+  .btn-secondary:active { opacity: 0.7; }
+
+  /* ── JOB CARDS ── */
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin: 24px 0 10px;
+  }
+  .job-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: border-color 0.15s;
+  }
+  .job-card:active { border-color: var(--accent); }
+  .job-card-left h3 {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .job-card-left p {
+    font-size: 13px;
+    color: var(--text2);
+    margin-top: 2px;
+    font-family: var(--font-mono);
+  }
+  .job-progress {
+    text-align: right;
+  }
+  .job-progress-bar {
+    width: 80px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+  .job-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+  .job-progress-text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text3);
+  }
+  .photo-count-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-top: 4px;
+    display: inline-block;
+  }
+
+  /* ── NEW JOB SETUP ── */
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .setup-card h3 {
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+    color: var(--accent);
+  }
+  .form-group { margin-bottom: 14px; }
+  .form-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 6px;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 12px 14px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 12px 14px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+  .toggle-label {
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .toggle-sub {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 2px;
+  }
+  .toggle {
+    width: 50px;
+    height: 28px;
+    background: var(--border);
+    border-radius: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: left 0.2s;
+  }
+  .toggle.on::after { left: 25px; }
+
+  /* ── JOB VIEW ── */
+  .job-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .job-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .job-header h2 {
+    font-family: var(--font-head);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+  .job-header-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 2px;
+  }
+  .overall-progress {
+    margin-top: 10px;
+  }
+  .overall-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .overall-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7030A0, #9040c0);
+    border-radius: 3px;
+    transition: width 0.4s;
+  }
+  .overall-text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── SECTION GROUPS ── */
+  .group-header {
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 20px 0 8px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+  .group-header h3 {
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+
+  .section-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .section-row:active { background: var(--surface2); border-color: var(--accent); }
+  .section-row.has-photos { border-left: 3px solid var(--accent); }
+  .section-row-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+  .section-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .section-check.done {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .section-check.done::after {
+    content: '✓';
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .section-name {
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .section-name .sub {
+    color: var(--text2);
+    font-size: 13px;
+    font-weight: 400;
+  }
+  .section-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .tag-epc { background: rgba(61,155,233,0.15); color: var(--epc); border: 1px solid rgba(61,155,233,0.3); }
+  .tag-cr { background: rgba(168,85,247,0.15); color: var(--cr); border: 1px solid rgba(168,85,247,0.3); }
+  .tag-both { background: rgba(0,212,170,0.12); color: var(--both); border: 1px solid rgba(0,212,170,0.3); }
+
+  .section-photo-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-left: 8px;
+    background: rgba(0,212,170,0.1);
+    padding: 2px 7px;
+    border-radius: 10px;
+    flex-shrink: 0;
+  }
+
+  /* ── PHOTO CAPTURE SCREEN ── */
+  .capture-header {
+    margin-bottom: 20px;
+  }
+  .capture-section-name {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .capture-job-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .capture-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    padding: 22px;
+    border-radius: var(--radius);
+    font-family: var(--font-head);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .capture-btn:active { opacity: 0.8; }
+  .capture-btn-icon { font-size: 28px; }
+
+  .capture-btn.secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 18px;
+    padding: 16px;
+  }
+
+  .notes-area {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 14px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    outline: none;
+    resize: none;
+    height: 100px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+  }
+  .notes-area:focus { border-color: var(--accent); }
+  .notes-area::placeholder { color: var(--text3); }
+
+  /* ── BORESCOPE NOTES ── */
+  .borescope-card {
+    background: rgba(255,107,53,0.08);
+    border: 1px solid rgba(255,107,53,0.3);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .borescope-card h4 {
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 10px;
+  }
+
+  /* ── PHOTO GRID ── */
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .photo-thumb {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .photo-thumb-delete {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    background: var(--danger);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    color: white;
+    font-weight: 700;
+  }
+  .photo-thumb-meta {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.7);
+    padding: 3px 5px;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: rgba(255,255,255,0.7);
+  }
+  .no-photos-placeholder {
+    grid-column: 1/-1;
+    padding: 30px;
+    text-align: center;
+    color: var(--text3);
+    font-size: 14px;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+  }
+
+  /* ── SHARE PANEL ── */
+  .share-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .share-panel h4 {
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    color: var(--text2);
+    text-transform: uppercase;
+  }
+  .share-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .share-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .share-btn:active { border-color: var(--accent); }
+  .share-btn-icon { font-size: 20px; margin-bottom: 4px; }
+  .share-btn-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--accent);
+    color: #ffffff;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    z-index: 999;
+    transition: transform 0.3s;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.warn { background: var(--warn); }
+  .toast.danger { background: var(--danger); color: white; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border-top: 2px solid var(--accent);
+    border-radius: 16px 16px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal h3 {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 16px;
+  }
+  .modal-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--font-head);
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 8px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .modal-btn.danger { color: var(--danger); border-color: rgba(255,59,92,0.3); }
+  .modal-btn:active { opacity: 0.7; }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  /* ── SEARCH ── */
+  .search-box {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 12px 14px;
+    font-family: var(--font-body);
+    font-size: 16px;
+    outline: none;
+    margin-bottom: 16px;
+    transition: border-color 0.15s;
+  }
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--text3); }
+
+  /* ── HIDDEN FILE INPUT ── */
+  #camera-input { display: none; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-number {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stat-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state h3 {
+    font-family: var(--font-head);
+    font-size: 22px;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+  .empty-state p { font-size: 14px; }
+
+  .postcode-result {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    transition: border-color 0.15s;
+  }
+  .postcode-result:active { border-color: var(--accent); }
+  .postcode-result.selected { border-color: var(--accent); background: rgba(0,212,170,0.08); }
+  .postcode-result p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+  .address-list { max-height: 250px; overflow-y: auto; margin-bottom: 12px; }
+
+  .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .info-banner {
+    background: rgba(0,212,170,0.08);
+    border: 1px solid rgba(0,212,170,0.2);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+  .info-banner strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- HIDDEN FILE INPUT -->
+<input type="file" id="camera-input" accept="image/*" capture="environment" multiple>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="header-logo">RSL<span> ENERGY</span></div>
+    <div class="header-sub">RetroAssess · Field Evidence Companion</div>
+  </div>
+  <button class="btn-back" id="btn-back" style="display:none" onclick="goBack()">← Back</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<!-- ══════════════ HOME SCREEN ══════════════ -->
+<div class="screen active" id="screen-home">
+  <div style="padding-top:10px">
+    <div class="home-greeting">
+      <h1>TODAY'S<br>JOBS</h1>
+      <p>RSL Energy Ltd — Retrofit Assessment Evidence</p>
+    </div>
+    <div class="date-badge" id="date-badge"></div>
+
+    <button class="btn-primary" onclick="showScreen('screen-new-job')">
+      <span>＋</span> NEW JOB
+    </button>
+
+    <div class="section-label">Active Jobs Today</div>
+    <div id="jobs-list">
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <h3>No jobs yet</h3>
+        <p>Tap NEW JOB to start your first assessment</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ NEW JOB SCREEN ══════════════ -->
+<div class="screen" id="screen-new-job">
+  <div class="info-banner">
+    Search by postcode or enter the address manually. Only the first line and postcode are required.</div>
+
+  <div class="setup-card">
+    <h3>📍 Property Address</h3>
+
+    <!-- Postcode search row -->
+    <div class="form-group">
+      <label class="form-label">Postcode</label>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="postcode-input" type="text" placeholder="e.g. NR31 8BN"
+          style="text-transform:uppercase;flex:1"
+          oninput="this.value=this.value.toUpperCase()"
+          onkeydown="if(event.key==='Enter')lookupPostcode()">
+        <button class="btn-primary" style="width:auto;padding:12px 18px;font-size:16px;margin:0" onclick="lookupPostcode()" id="btn-postcode-search">Search</button>
+      </div>
+    </div>
+
+    <!-- Results / status -->
+    <div id="address-results"></div>
+
+    <!-- Always-visible manual entry -->
+    <div class="form-group">
+      <label class="form-label">First Line of Address</label>
+      <input class="form-input" id="address-line1" type="text" placeholder="e.g. 55 Fredrick Road">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Postcode (confirmed)</label>
+      <input class="form-input" id="address-postcode" type="text" placeholder="e.g. NR31 8BN"
+        style="text-transform:uppercase"
+        oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Assessor Name</label>
+      <input class="form-input" id="assessor-input" type="text" placeholder="Your name">
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <h3>🏠 Property Configuration</h3>
+    <div class="form-group">
+      <label class="form-label">Number of Bedrooms</label>
+      <select class="form-select" id="bedrooms-select">
+        <option value="1">1 Bedroom</option>
+        <option value="2">2 Bedrooms</option>
+        <option value="3" selected>3 Bedrooms</option>
+        <option value="4">4 Bedrooms</option>
+        <option value="5">5 Bedrooms</option>
+        <option value="6">6 Bedrooms</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Property Type</label>
+      <select class="form-select" id="proptype-select">
+        <option value="Mid-Terrace">Mid-Terrace</option>
+        <option value="End-Terrace">End-Terrace</option>
+        <option value="Semi-Detached">Semi-Detached</option>
+        <option value="Detached">Detached</option>
+        <option value="Flat">Flat</option>
+        <option value="Bungalow">Bungalow</option>
+      </select>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Has Dining Room</div>
+      </div>
+      <div class="toggle" id="toggle-dining" onclick="toggleSwitch(this)"></div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Has Cellar / Basement</div>
+      </div>
+      <div class="toggle" id="toggle-cellar" onclick="toggleSwitch(this)"></div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Has Loft Access</div>
+      </div>
+      <div class="toggle on" id="toggle-loft" onclick="toggleSwitch(this)"></div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Has Garage</div>
+      </div>
+      <div class="toggle" id="toggle-garage" onclick="toggleSwitch(this)"></div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Has Extension / Conservatory</div>
+      </div>
+      <div class="toggle" id="toggle-extension" onclick="toggleSwitch(this)"></div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Borescope Required</div>
+        <div class="toggle-sub">Adds borescope section to each elevation</div>
+      </div>
+      <div class="toggle on" id="toggle-borescope" onclick="toggleSwitch(this)"></div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Left / Right Elevations Accessible</div>
+        <div class="toggle-sub">Uncheck for mid-terrace party walls</div>
+      </div>
+      <div class="toggle on" id="toggle-sides" onclick="toggleSwitch(this)"></div>
+    </div>
+  </div>
+
+  <button class="btn-primary" onclick="createJob()" style="margin-top:8px">
+    CREATE JOB →
+  </button>
+  <div style="height:40px"></div>
+</div>
+
+<!-- ══════════════ JOB VIEW SCREEN ══════════════ -->
+<div class="screen" id="screen-job">
+  <div class="job-header" id="job-header"></div>
+  <input class="search-box" id="section-search" placeholder="🔍  Search sections..." oninput="filterSections(this.value)">
+  <div class="legend">
+    <div class="legend-item"><span class="section-tag tag-epc">EPC</span> EPC only</div>
+    <div class="legend-item"><span class="section-tag tag-cr">CR</span> Condition Report</div>
+    <div class="legend-item"><span class="section-tag tag-both">BOTH</span> Both</div>
+  </div>
+  <div id="sections-list"></div>
+  <div style="height:40px"></div>
+</div>
+
+<!-- ══════════════ CAPTURE SCREEN ══════════════ -->
+<div class="screen" id="screen-capture">
+  <div class="capture-header">
+    <div class="capture-section-name" id="capture-section-name"></div>
+    <div class="capture-job-name" id="capture-job-name"></div>
+  </div>
+
+  <div id="borescope-fields" style="display:none">
+    <div class="borescope-card">
+      <h4>🔬 Borescope Notes</h4>
+      <div class="form-group">
+        <label class="form-label">Insulation Type</label>
+        <select class="form-select" id="bore-insulation">
+          <option value="">— Select —</option>
+          <option>EPS Beads</option>
+          <option>Mineral Wool (MW)</option>
+          <option>Polyurethane Foam</option>
+          <option>Unknown</option>
+          <option>Not Filled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">% Complete</label>
+        <select class="form-select" id="bore-percent">
+          <option value="">— Select —</option>
+          <option>100%</option><option>90%</option><option>80%</option>
+          <option>70%</option><option>60%</option><option>50%</option>
+          <option>Less than 50%</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Condition / Notes</label>
+        <textarea class="notes-area" id="bore-notes" placeholder="Debris, moisture, damage etc..." style="height:70px"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <button class="capture-btn" onclick="triggerCamera()">
+    <span class="capture-btn-icon">📷</span> TAKE PHOTO
+  </button>
+
+  <button class="capture-btn secondary" onclick="triggerCameraMulti()">
+    <span>🖼️</span> ADD FROM LIBRARY
+  </button>
+
+  <div class="section-label" style="margin-top:16px">Photos Captured</div>
+  <div class="photo-grid" id="photo-grid"></div>
+
+  <div class="form-group" style="margin-top:8px">
+    <label class="form-label">Section Notes</label>
+    <textarea class="notes-area" id="section-notes" placeholder="Optional notes for this section..."></textarea>
+  </div>
+
+  <div class="share-panel">
+    <h4>📤 Export / Share</h4>
+    <div class="share-btn-row">
+      <div class="share-btn" onclick="shareToApp('rdsap')">
+        <div class="share-btn-icon">📊</div>
+        <div class="share-btn-label">RdSAP Go</div>
+      </div>
+      <div class="share-btn" onclick="shareToApp('condition')">
+        <div class="share-btn-icon">📋</div>
+        <div class="share-btn-label">Condition Report Go</div>
+      </div>
+      <div class="share-btn" onclick="saveToFiles()">
+        <div class="share-btn-icon">📁</div>
+        <div class="share-btn-label">Save to Files</div>
+      </div>
+      <div class="share-btn" onclick="shareAll()">
+        <div class="share-btn-icon">↗️</div>
+        <div class="share-btn-label">Share All</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-primary" onclick="markSectionDone()" style="background:var(--accent);color:#ffffff;margin-top:4px">
+    ✓ MARK SECTION DONE
+  </button>
+  <div style="height:40px"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════
+
+let state = {
+  jobs: [],
+  currentJobId: null,
+  currentSectionIdx: null
+};
+
+// Load from localStorage
+try {
+  const saved = localStorage.getItem('retroassess_state');
+  if (saved) state = JSON.parse(saved);
+} catch(e) {}
+
+function save() {
+  try { localStorage.setItem('retroassess_state', JSON.stringify(state)); } catch(e) {}
+}
+
+function getJob() {
+  return state.jobs.find(j => j.id === state.currentJobId);
+}
+
+// ══════════════════════════════════════════════════
+// SECTION DEFINITIONS
+// ══════════════════════════════════════════════════
+
+function buildSections(config) {
+  const s = [];
+  const add = (name, tag, group, opts={}) => s.push({name, tag, group, photos:[], notes:'', done:false, ...opts});
+
+  add('Aborted Visit — Door Card Photo', 'both', 'PRE-VISIT');
+
+  // External
+  add('Front Elevation + Front Door', 'both', 'EXTERNAL');
+  if(config.borescope) add('Front Elevation — Borescope', 'both', 'EXTERNAL', {isBorescope:true, boreData:{}});
+  add('Rear Elevation', 'both', 'EXTERNAL');
+  if(config.borescope) add('Rear Elevation — Borescope', 'both', 'EXTERNAL', {isBorescope:true, boreData:{}});
+  if(config.sides) {
+    add('Left Side Elevation', 'both', 'EXTERNAL');
+    if(config.borescope) add('Left Side Elevation — Borescope', 'both', 'EXTERNAL', {isBorescope:true, boreData:{}});
+    add('Right Side Elevation', 'both', 'EXTERNAL');
+    if(config.borescope) add('Right Side Elevation — Borescope', 'both', 'EXTERNAL', {isBorescope:true, boreData:{}});
+  }
+  add('Roof (External)', 'both', 'EXTERNAL');
+  add('Chimney', 'cr', 'EXTERNAL');
+  add('Gutters / Drainage', 'cr', 'EXTERNAL');
+  add('Parking / Access Constraints', 'both', 'EXTERNAL');
+  add('Wall Construction (External)', 'epc', 'EXTERNAL');
+  add('Wall Thickness Measurement', 'both', 'EXTERNAL');
+  if(config.extension) add('Extension / Conservatory', 'epc', 'EXTERNAL');
+  add('Solar Panels / Renewables', 'epc', 'EXTERNAL');
+
+  // Meters
+  add('Electric Meter', 'both', 'METERS & SERVICES');
+  add('Gas Meter', 'epc', 'METERS & SERVICES');
+  add('DNO Switch', 'epc', 'METERS & SERVICES');
+  add('Consumer Unit / RCD', 'both', 'METERS & SERVICES');
+  add('Services — Fuse Board / Stopcock', 'cr', 'METERS & SERVICES');
+
+  // Rooms helper
+  const room = (name, group, isWet=false) => {
+    add(name, 'both', group);
+    add(name+' — Undercuts', 'cr', group);
+    add(name+' — Lighting', 'cr', group);
+    add(name+' — Heating', 'both', group);
+    add(name+' — Windows', 'both', group);
+    add(name+' — Trickle Vents', 'cr', group);
+    if(isWet) add(name+' — Ventilation', 'cr', group);
+    add(name+' — Damp / Mould', 'cr', group);
+  };
+
+  room('Entrance Hall', 'ENTRANCE HALL');
+  room('Living Room', 'LIVING ROOM');
+  if(config.dining) room('Dining Room', 'DINING ROOM');
+  room('Kitchen', 'KITCHEN', true);
+  room('Bathroom', 'BATHROOM', true);
+  add('Bathroom — Shower', 'cr', 'BATHROOM');
+  add('Bathroom — Bath', 'cr', 'BATHROOM');
+  room('WC / Cloakroom', 'WC / CLOAKROOM', true);
+
+  for(let i=1; i<=config.bedrooms; i++) {
+    room(`Bedroom ${i}`, `BEDROOM ${i}`);
+  }
+
+  room('Landing / Stairs', 'LANDING / STAIRS');
+  if(config.cellar) room('Cellar / Basement', 'CELLAR / BASEMENT');
+
+  // Loft
+  if(config.loft) {
+    add('Loft — Access', 'both', 'LOFT');
+    add('Loft — Insulation', 'both', 'LOFT');
+    add('Loft — Gable Ends', 'cr', 'LOFT');
+    add('Loft — Walls', 'cr', 'LOFT');
+    add('Loft — Damp / Mould', 'cr', 'LOFT');
+  }
+
+  // Construction
+  add('Wall Construction (Internal)', 'epc', 'WALL & FLOOR CONSTRUCTION');
+  add('Floor Construction — Ground Floor', 'epc', 'WALL & FLOOR CONSTRUCTION');
+  add('Windows / Glazing (General)', 'epc', 'WALL & FLOOR CONSTRUCTION');
+  add('Ventilation / Extractor Fans (General)', 'epc', 'WALL & FLOOR CONSTRUCTION');
+  if(config.garage) add('Garage', 'epc', 'WALL & FLOOR CONSTRUCTION');
+
+  // Heating
+  add('Heating & Controls — Boiler', 'both', 'HEATING & HOT WATER');
+  add('Heating & Controls — Thermostat', 'both', 'HEATING & HOT WATER');
+  add('Heating & Controls — TRVs', 'epc', 'HEATING & HOT WATER');
+  add('Heating & Controls — Heat Emitters', 'epc', 'HEATING & HOT WATER');
+  add('Hot Water Cylinder', 'epc', 'HEATING & HOT WATER');
+  add('Water Heating', 'cr', 'HEATING & HOT WATER');
+
+  // Specialist
+  add('Structural Defects', 'cr', 'SPECIALIST & COMPLIANCE');
+  add('Ventilation Issues', 'cr', 'SPECIALIST & COMPLIANCE');
+  add('New Technology', 'cr', 'SPECIALIST & COMPLIANCE');
+  add('Air Pressure Test', 'cr', 'SPECIALIST & COMPLIANCE');
+  add('Floor Plan', 'both', 'SPECIALIST & COMPLIANCE');
+  add('Occupancy Assessment', 'cr', 'OCCUPANCY');
+  add('Other / Miscellaneous', 'both', 'MISCELLANEOUS');
+
+  return s;
+}
+
+// ══════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════
+
+let screenStack = ['screen-home'];
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(screenStack[screenStack.length-1] !== id) screenStack.push(id);
+  document.getElementById('btn-back').style.display = screenStack.length > 1 ? 'block' : 'none';
+  window.scrollTo(0,0);
+}
+
+function goBack() {
+  screenStack.pop();
+  const prev = screenStack[screenStack.length-1];
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(prev).classList.add('active');
+  document.getElementById('btn-back').style.display = screenStack.length > 1 ? 'block' : 'none';
+  if(prev === 'screen-home') renderHome();
+  if(prev === 'screen-job') renderJobView();
+  window.scrollTo(0,0);
+}
+
+// ══════════════════════════════════════════════════
+// HOME
+// ══════════════════════════════════════════════════
+
+function renderHome() {
+  const now = new Date();
+  document.getElementById('date-badge').textContent = now.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+
+  const list = document.getElementById('jobs-list');
+  if(state.jobs.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">📋</div><h3>No jobs yet</h3><p>Tap NEW JOB to start your first assessment</p></div>`;
+    return;
+  }
+
+  list.innerHTML = state.jobs.map(job => {
+    const total = job.sections.length;
+    const done = job.sections.filter(s => s.done).length;
+    const photos = job.sections.reduce((acc, s) => acc + s.photos.length, 0);
+    const pct = total ? Math.round(done/total*100) : 0;
+    return `<div class="job-card" onclick="openJob('${job.id}')">
+      <div class="job-card-left">
+        <h3>${job.address.split(',')[0]}</h3>
+        <p>${job.address}</p>
+        <span class="photo-count-badge">📷 ${photos} photos</span>
+      </div>
+      <div class="job-progress">
+        <div class="job-progress-bar"><div class="job-progress-fill" style="width:${pct}%"></div></div>
+        <div class="job-progress-text">${done}/${total} sections</div>
+        <div class="job-progress-text" style="margin-top:4px">${pct}% done</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// POSTCODE LOOKUP
+// ══════════════════════════════════════════════════
+
+async function lookupPostcode() {
+  const raw = document.getElementById('postcode-input').value.trim();
+  const pc = raw.replace(/\s/g,'').toUpperCase();
+  if(!pc) { showToast('Enter a postcode first', 'warn'); return; }
+
+  const el = document.getElementById('address-results');
+  const btn = document.getElementById('btn-postcode-search');
+  el.innerHTML = '<div style="text-align:center;padding:12px"><span class="spinner"></span></div>';
+  btn.textContent = '...';
+  btn.disabled = true;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const r = await fetch(`https://api.postcodes.io/postcodes/${pc}`, {signal: controller.signal});
+    clearTimeout(timeout);
+    const d = await r.json();
+
+    if(d.status !== 200) throw new Error('Not found');
+
+    const result = d.result;
+    // Format postcode with space
+    const formatted = result.postcode;
+    const area = [result.admin_district, result.region].filter(Boolean).join(', ');
+
+    el.innerHTML = `
+      <div class="postcode-result selected" style="margin-bottom:12px">
+        <strong>✓ ${formatted}</strong>
+        <p>${area}</p>
+      </div>`;
+
+    // Auto-fill postcode fields
+    document.getElementById('address-postcode').value = formatted;
+    document.getElementById('postcode-input').value = formatted;
+    showToast('Postcode found ✓');
+
+  } catch(e) {
+    const isOffline = !navigator.onLine || e.name === 'AbortError';
+    el.innerHTML = `
+      <div class="info-banner" style="background:rgba(255,184,0,0.08);border-color:rgba(255,184,0,0.3);margin-bottom:12px">
+        <strong style="color:var(--warn)">${isOffline ? '📡 Offline' : '⚠️ Postcode not found'}</strong><br>
+        Enter the address manually below — postcode lookup requires internet.
+      </div>`;
+    // Still copy whatever was typed into the postcode field
+    document.getElementById('address-postcode').value = raw.toUpperCase();
+    showToast(isOffline ? 'Offline — enter manually' : 'Not found — enter manually', 'warn');
+  }
+
+  btn.textContent = 'Search';
+  btn.disabled = false;
+}
+
+function selectAddress(pc) {
+  document.getElementById('address-postcode').value = pc;
+}
+
+// ══════════════════════════════════════════════════
+// CREATE JOB
+// ══════════════════════════════════════════════════
+
+function toggleSwitch(el) {
+  el.classList.toggle('on');
+}
+
+function createJob() {
+  const line1 = document.getElementById('address-line1').value.trim();
+  const postcode = document.getElementById('address-postcode').value.trim().toUpperCase();
+  const assessor = document.getElementById('assessor-input').value.trim();
+  if(!line1) { showToast('Enter the first line of address', 'warn'); return; }
+  if(!postcode) { showToast('Enter the postcode', 'warn'); return; }
+  const address = `${line1}, ${postcode}`;
+
+  const config = {
+    bedrooms: parseInt(document.getElementById('bedrooms-select').value),
+    propType: document.getElementById('proptype-select').value,
+    dining: document.getElementById('toggle-dining').classList.contains('on'),
+    cellar: document.getElementById('toggle-cellar').classList.contains('on'),
+    loft: document.getElementById('toggle-loft').classList.contains('on'),
+    garage: document.getElementById('toggle-garage').classList.contains('on'),
+    extension: document.getElementById('toggle-extension').classList.contains('on'),
+    borescope: document.getElementById('toggle-borescope').classList.contains('on'),
+    sides: document.getElementById('toggle-sides').classList.contains('on'),
+  };
+
+  const job = {
+    id: 'job_' + Date.now(),
+    address,
+    assessor,
+    config,
+    created: new Date().toISOString(),
+    sections: buildSections(config)
+  };
+
+  state.jobs.unshift(job);
+  save();
+  showToast(`Job created — ${job.sections.length} sections`);
+
+  // Reset form
+  document.getElementById('postcode-input').value = '';
+  document.getElementById('address-line1').value = '';
+  document.getElementById('address-postcode').value = '';
+  document.getElementById('address-results').innerHTML = '';
+
+  state.currentJobId = job.id;
+  renderJobView();
+  showScreen('screen-job');
+}
+
+// ══════════════════════════════════════════════════
+// JOB VIEW
+// ══════════════════════════════════════════════════
+
+function openJob(id) {
+  state.currentJobId = id;
+  renderJobView();
+  showScreen('screen-job');
+}
+
+function renderJobView() {
+  const job = getJob();
+  if(!job) return;
+  const total = job.sections.length;
+  const done = job.sections.filter(s => s.done).length;
+  const photos = job.sections.reduce((acc, s) => acc + s.photos.length, 0);
+  const pct = total ? Math.round(done/total*100) : 0;
+
+  document.getElementById('job-header').innerHTML = `
+    <div class="job-header-top">
+      <div>
+        <h2>${job.address.split(',')[0]}</h2>
+        <div class="job-header-meta">${job.address} · ${job.config.propType} · ${job.config.bedrooms} bed · ${job.assessor || 'No assessor set'}</div>
+      </div>
+      <button class="btn-back" onclick="showJobMenu()" style="display:block">⋯</button>
+    </div>
+    <div class="overall-progress">
+      <div class="overall-bar"><div class="overall-fill" style="width:${pct}%"></div></div>
+      <div class="overall-text"><span>${done} of ${total} sections done</span><span>📷 ${photos} photos · ${pct}%</span></div>
+    </div>`;
+
+  renderSections(job.sections);
+}
+
+function renderSections(sections, filter='') {
+  const list = document.getElementById('sections-list');
+  const groups = {};
+  sections.forEach((s, i) => {
+    if(filter && !s.name.toLowerCase().includes(filter.toLowerCase())) return;
+    if(!groups[s.group]) groups[s.group] = [];
+    groups[s.group].push({...s, idx: sections.indexOf(s)});
+  });
+
+  let html = '';
+  for(const [group, items] of Object.entries(groups)) {
+    html += `<div class="group-header"><h3>${group}</h3></div>`;
+    items.forEach(s => {
+      const tagClass = `tag-${s.tag}`;
+      const tagLabel = s.tag === 'epc' ? 'EPC' : s.tag === 'cr' ? 'CR' : 'BOTH';
+      html += `<div class="section-row ${s.photos.length > 0 ? 'has-photos' : ''}" onclick="openSection(${s.idx})">
+        <div class="section-row-left">
+          <div class="section-check ${s.done ? 'done' : ''}"></div>
+          <div class="section-name">${s.name}</div>
+          ${s.photos.length > 0 ? `<span class="section-photo-count">📷 ${s.photos.length}</span>` : ''}
+        </div>
+        <span class="section-tag ${tagClass}">${tagLabel}</span>
+      </div>`;
+    });
+  }
+  list.innerHTML = html || '<div class="empty-state"><p>No sections match your search</p></div>';
+}
+
+function filterSections(val) {
+  const job = getJob();
+  if(job) renderSections(job.sections, val);
+}
+
+// ══════════════════════════════════════════════════
+// SECTION CAPTURE
+// ══════════════════════════════════════════════════
+
+function openSection(idx) {
+  state.currentSectionIdx = idx;
+  const job = getJob();
+  const section = job.sections[idx];
+
+  document.getElementById('capture-section-name').textContent = section.name;
+  document.getElementById('capture-job-name').textContent = job.address;
+  document.getElementById('section-notes').value = section.notes || '';
+
+  // Borescope fields
+  const boreEl = document.getElementById('borescope-fields');
+  if(section.isBorescope) {
+    boreEl.style.display = 'block';
+    if(section.boreData) {
+      document.getElementById('bore-insulation').value = section.boreData.insulation || '';
+      document.getElementById('bore-percent').value = section.boreData.percent || '';
+      document.getElementById('bore-notes').value = section.boreData.notes || '';
+    }
+  } else {
+    boreEl.style.display = 'none';
+  }
+
+  renderPhotoGrid(section);
+  showScreen('screen-capture');
+}
+
+function renderPhotoGrid(section) {
+  const grid = document.getElementById('photo-grid');
+  if(!section.photos || section.photos.length === 0) {
+    grid.innerHTML = `<div class="no-photos-placeholder">No photos yet — tap TAKE PHOTO</div>`;
+    return;
+  }
+  grid.innerHTML = section.photos.map((p, i) => `
+    <div class="photo-thumb">
+      <img src="${p.dataUrl}" alt="photo ${i+1}">
+      <div class="photo-thumb-delete" onclick="deletePhoto(${i})">✕</div>
+      <div class="photo-thumb-meta">${p.time}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════
+// CAMERA
+// ══════════════════════════════════════════════════
+
+let cameraMode = 'single';
+
+function triggerCamera() {
+  cameraMode = 'single';
+  const input = document.getElementById('camera-input');
+  input.removeAttribute('multiple');
+  input.click();
+}
+
+function triggerCameraMulti() {
+  cameraMode = 'multi';
+  const input = document.getElementById('camera-input');
+  input.setAttribute('multiple', 'multiple');
+  input.removeAttribute('capture');
+  input.click();
+}
+
+document.getElementById('camera-input').addEventListener('change', function(e) {
+  const files = Array.from(e.target.files);
+  if(!files.length) return;
+
+  const job = getJob();
+  const section = job.sections[state.currentSectionIdx];
+
+  let processed = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const now = new Date();
+      const time = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+      const date = now.toLocaleDateString('en-GB');
+      section.photos.push({
+        dataUrl: ev.target.result,
+        time: `${date} ${time}`,
+        filename: file.name,
+        size: file.size
+      });
+      processed++;
+      if(processed === files.length) {
+        saveSectionData();
+        renderPhotoGrid(section);
+        showToast(`${files.length} photo${files.length>1?'s':''} added`);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Reset input
+  this.value = '';
+  this.setAttribute('capture', 'environment');
+  this.removeAttribute('multiple');
+});
+
+function deletePhoto(idx) {
+  const job = getJob();
+  const section = job.sections[state.currentSectionIdx];
+  if(confirm(`Delete photo ${idx+1}?`)) {
+    section.photos.splice(idx, 1);
+    saveSectionData();
+    renderPhotoGrid(section);
+  }
+}
+
+// ══════════════════════════════════════════════════
+// SAVE SECTION DATA
+// ══════════════════════════════════════════════════
+
+function saveSectionData() {
+  const job = getJob();
+  const section = job.sections[state.currentSectionIdx];
+  section.notes = document.getElementById('section-notes').value;
+
+  if(section.isBorescope) {
+    section.boreData = {
+      insulation: document.getElementById('bore-insulation').value,
+      percent: document.getElementById('bore-percent').value,
+      notes: document.getElementById('bore-notes').value
+    };
+  }
+  save();
+}
+
+function markSectionDone() {
+  saveSectionData();
+  const job = getJob();
+  const section = job.sections[state.currentSectionIdx];
+  section.done = true;
+  save();
+  showToast('Section marked done ✓');
+  setTimeout(() => goBack(), 800);
+}
+
+// ══════════════════════════════════════════════════
+// SHARE / EXPORT
+// ══════════════════════════════════════════════════
+
+async function shareToApp(app) {
+  const job = getJob();
+  const section = job.sections[state.currentSectionIdx];
+  if(!section.photos.length) { showToast('No photos to share', 'warn'); return; }
+
+  saveSectionData();
+  const appName = app === 'rdsap' ? 'RdSAP Go' : 'Condition Report Go';
+
+  // Convert dataURLs to Blobs and share
+  try {
+    const files = await Promise.all(section.photos.map(async (p, i) => {
+      const res = await fetch(p.dataUrl);
+      const blob = await res.blob();
+      const fname = `${job.address.replace(/[^a-z0-9]/gi,'_')}_${section.name.replace(/[^a-z0-9]/gi,'_')}_${i+1}.jpg`;
+      return new File([blob], fname, {type:'image/jpeg'});
+    }));
+
+    if(navigator.canShare && navigator.canShare({files})) {
+      await navigator.share({
+        files,
+        title: `${section.name} — ${job.address}`,
+        text: `Evidence for ${appName}: ${section.name}`
+      });
+      showToast(`Shared to ${appName}`);
+    } else {
+      // Fallback: download
+      downloadPhotos(section, job);
+    }
+  } catch(e) {
+    if(e.name !== 'AbortError') showToast('Share failed — try Save to Files', 'warn');
+  }
+}
+
+async function shareAll() {
+  const job = getJob();
+  const section = job.sections[state.currentSectionIdx];
+  if(!section.photos.length) { showToast('No photos to share', 'warn'); return; }
+  saveSectionData();
+
+  try {
+    const files = await Promise.all(section.photos.map(async (p, i) => {
+      const res = await fetch(p.dataUrl);
+      const blob = await res.blob();
+      return new File([blob], `${section.name.replace(/[^a-z0-9]/gi,'_')}_${i+1}.jpg`, {type:'image/jpeg'});
+    }));
+
+    if(navigator.canShare && navigator.canShare({files})) {
+      await navigator.share({ files, title: section.name });
+    } else {
+      downloadPhotos(section, job);
+    }
+  } catch(e) {
+    if(e.name !== 'AbortError') showToast('Share failed', 'warn');
+  }
+}
+
+function downloadPhotos(section, job) {
+  section.photos.forEach((p, i) => {
+    const a = document.createElement('a');
+    a.href = p.dataUrl;
+    a.download = `${job.address.replace(/[^a-z0-9]/gi,'_')}_${section.name.replace(/[^a-z0-9]/gi,'_')}_${i+1}.jpg`;
+    a.click();
+  });
+  showToast('Photos downloaded');
+}
+
+function saveToFiles() {
+  const job = getJob();
+  const section = job.sections[state.currentSectionIdx];
+  saveSectionData();
+  if(!section.photos.length) { showToast('No photos to save', 'warn'); return; }
+  downloadPhotos(section, job);
+}
+
+// ══════════════════════════════════════════════════
+// JOB MENU
+// ══════════════════════════════════════════════════
+
+function showJobMenu() {
+  const job = getJob();
+  const total = job.sections.length;
+  const done = job.sections.filter(s => s.done).length;
+  const photos = job.sections.reduce((acc, s) => acc + s.photos.length, 0);
+
+  showModal(`
+    <h3>${job.address.split(',')[0]}</h3>
+    <div class="stats-row" style="margin-bottom:16px">
+      <div class="stat-box"><div class="stat-number">${done}</div><div class="stat-label">Done</div></div>
+      <div class="stat-box"><div class="stat-number">${photos}</div><div class="stat-label">Photos</div></div>
+      <div class="stat-box"><div class="stat-number">${total-done}</div><div class="stat-label">Remaining</div></div>
+    </div>
+    <button class="modal-btn" onclick="exportJobSummary();closeModal()">📄 Export Job Summary</button>
+    <button class="modal-btn" onclick="resetJobProgress();closeModal()">🔄 Reset Progress</button>
+    <button class="modal-btn danger" onclick="deleteJob();closeModal()">🗑️ Delete Job</button>
+    <button class="modal-btn" onclick="closeModal()">Cancel</button>
+  `);
+}
+
+function deleteJob() {
+  if(confirm('Delete this job and all photos? This cannot be undone.')) {
+    state.jobs = state.jobs.filter(j => j.id !== state.currentJobId);
+    save();
+    goBack();
+    renderHome();
+  }
+}
+
+function resetJobProgress() {
+  const job = getJob();
+  job.sections.forEach(s => { s.done = false; });
+  save();
+  renderJobView();
+  showToast('Progress reset');
+}
+
+function exportJobSummary() {
+  const job = getJob();
+  const lines = [
+    `RSL ENERGY LTD — RETROASSESS JOB SUMMARY`,
+    `TrustMark Licence: 2847333`,
+    `─────────────────────────────────────`,
+    `Address: ${job.address}`,
+    `Assessor: ${job.assessor || 'Not set'}`,
+    `Date: ${new Date(job.created).toLocaleDateString('en-GB')}`,
+    `Property: ${job.config.propType}, ${job.config.bedrooms} bed`,
+    `─────────────────────────────────────`,
+    `SECTIONS:`
+  ];
+  job.sections.forEach(s => {
+    const status = s.done ? '✓' : '○';
+    const photos = s.photos.length ? ` [${s.photos.length} photos]` : '';
+    const bore = s.boreData && s.boreData.insulation ? ` | Bore: ${s.boreData.insulation} ${s.boreData.percent}` : '';
+    lines.push(`${status} ${s.name}${photos}${bore}`);
+    if(s.notes) lines.push(`   Notes: ${s.notes}`);
+  });
+
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `RetroAssess_${job.address.replace(/[^a-z0-9]/gi,'_')}_Summary.txt`;
+  a.click();
+  showToast('Summary exported');
+}
+
+// ══════════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════════
+
+function showModal(html) {
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if(!e || e.target === document.getElementById('modal-overlay')) {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' '+type : '');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ══════════════════════════════════════════════════
+// AUTO-SAVE NOTES ON BLUR
+// ══════════════════════════════════════════════════
+
+document.getElementById('section-notes').addEventListener('blur', saveSectionData);
+document.getElementById('bore-insulation').addEventListener('change', saveSectionData);
+document.getElementById('bore-percent').addEventListener('change', saveSectionData);
+document.getElementById('bore-notes').addEventListener('blur', saveSectionData);
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+
+renderHome();
+</script>
+</body>
+</html>
