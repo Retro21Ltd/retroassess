@@ -568,6 +568,8 @@ function renderHome() {
 // ═══════════════════════════════════════
 // POSTCODE LOOKUP
 // ═══════════════════════════════════════
+const OS_KEY = 'QNdBjGT8KbH1ercuaaFSAyGzk0k8hQnB';
+
 async function lookupPC() {
   const raw = document.getElementById('pc-inp').value.trim();
   const pc = raw.replace(/\s/g,'').toUpperCase();
@@ -579,76 +581,100 @@ async function lookupPC() {
 
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 6000);
+    const t = setTimeout(() => ctrl.abort(), 8000);
 
-    // Use postcodes.io to validate and get area info
-    const r = await fetch(`https://api.postcodes.io/postcodes/${pc}`, {signal: ctrl.signal});
+    // OS Names API — search by postcode
+    const url = `https://api.os.uk/search/names/v1/find?query=${encodeURIComponent(pc)}&fq=LOCAL_TYPE:Postcode&key=${OS_KEY}`;
+    const r = await fetch(url, {signal: ctrl.signal});
     clearTimeout(t);
-    const d = await r.json();
-    if (d.status !== 200) throw new Error('not found');
-    const fmt = d.result.postcode;
-    const area = [d.result.admin_district, d.result.region].filter(Boolean).join(', ');
-    document.getElementById('addrpc').value = fmt;
 
-    // Try to fetch address list from api.os.uk (Ordnance Survey free tier)
-    // Falls back to manual entry if unavailable
+    if (!r.ok) throw new Error('OS API error');
+    const d = await r.json();
+
+    // Also try OS Places API for individual addresses
+    const placesUrl = `https://api.os.uk/search/places/v1/postcode?postcode=${encodeURIComponent(pc)}&key=${OS_KEY}&maxresults=100`;
+    let addresses = [];
     try {
       const ctrl2 = new AbortController();
-      const t2 = setTimeout(() => ctrl2.abort(), 5000);
-      const r2 = await fetch(`https://api.postcodes.io/postcodes/${pc}/autocomplete`, {signal: ctrl2.signal});
+      const t2 = setTimeout(() => ctrl2.abort(), 8000);
+      const r2 = await fetch(placesUrl, {signal: ctrl2.signal});
       clearTimeout(t2);
-      // postcodes.io autocomplete returns nearby postcodes, not addresses
-      // Use a manual numbered list approach instead
+      if (r2.ok) {
+        const d2 = await r2.json();
+        if (d2.results) {
+          addresses = d2.results.map(item => {
+            const a = item.DPA || item.LPI || {};
+            // Build clean address line
+            const parts = [
+              a.SUB_BUILDING_NAME,
+              a.BUILDING_NAME,
+              a.BUILDING_NUMBER,
+              a.THOROUGHFARE_NAME || a.STREET_DESCRIPTION,
+            ].filter(Boolean);
+            return {
+              line1: parts.join(' '),
+              full: a.ADDRESS || parts.join(', '),
+              postcode: a.POSTCODE || pc
+            };
+          }).filter(a => a.line1);
+        }
+      }
     } catch(e2) {}
 
-    // Build address selector — user picks house number from common formats
-    // or types it in. Show postcode confirmation + quick-pick house numbers
-    el.innerHTML = `
-      <div class="addr-result sel" style="margin-bottom:10px">
-        <strong>✓ ${fmt}</strong>
-        <p>${area}</p>
-      </div>
-      <div style="margin-bottom:8px">
-        <label class="flbl" style="margin-bottom:6px">Quick pick — tap your house number</label>
-        <div id="num-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:10px">
-          ${[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,
-             22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,
-             'Flat 1','Flat 2','Flat 3','Flat 4','Other'].map(n =>
-            `<div onclick="pickNum('${n}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 4px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--fm)">${n}</div>`
-          ).join('')}
+    // Format postcode
+    const fmtPC = pc.length > 4 ? pc.slice(0,-3) + ' ' + pc.slice(-3) : pc;
+    document.getElementById('addrpc').value = fmtPC;
+
+    if (addresses.length > 0) {
+      // Show dropdown of addresses
+      el.innerHTML = `
+        <div class="addr-result sel" style="margin-bottom:10px">
+          <strong>✓ ${fmtPC}</strong>
+          <p>${addresses.length} addresses found</p>
         </div>
-      </div>`;
-    document.getElementById('addr1').focus();
-    toast('Postcode found — pick or type house number');
+        <label class="flbl" style="margin-bottom:6px">Select your property</label>
+        <select class="fsel" id="addr-dropdown" onchange="selectFromDropdown(this.value)" style="margin-bottom:10px">
+          <option value="">— Select address —</option>
+          ${addresses.map((a,i) => `<option value="${i}">${a.line1}</option>`).join('')}
+          <option value="manual">Enter manually...</option>
+        </select>`;
+      // Store addresses for later use
+      window._pcAddresses = addresses;
+      toast(`${addresses.length} addresses found`);
+    } else {
+      // No addresses returned — fall back to manual
+      el.innerHTML = `
+        <div class="addr-result sel" style="margin-bottom:10px">
+          <strong>✓ ${fmtPC}</strong>
+        </div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:8px">Enter the first line of address below:</p>`;
+      document.getElementById('addr1').focus();
+      toast('Postcode confirmed — enter address manually');
+    }
 
   } catch(e) {
     const off = !navigator.onLine || e.name === 'AbortError';
     el.innerHTML = `<div class="infob" style="background:rgba(245,147,50,.08);border-color:rgba(245,147,50,.3);margin-bottom:10px">
-      <strong style="color:var(--warn)">${off ? 'Offline' : 'Postcode not found'}</strong> — enter address manually below.</div>`;
-    document.getElementById('addrpc').value = raw.toUpperCase();
-    toast(off ? 'Offline — enter manually' : 'Not found — enter manually', 'warn');
+      <strong style="color:var(--warn)">${off ? 'Offline' : 'Lookup failed'}</strong> — enter address manually below.</div>`;
+    document.getElementById('addrpc').value = raw.replace(/\s/g,'').toUpperCase().replace(/^(.+?)(\d\w\w)$/, '$1 $2');
+    toast(off ? 'Offline — enter manually' : 'Lookup failed — enter manually', 'warn');
   }
   btn.textContent = 'Search'; btn.disabled = false;
 }
 
-function pickNum(num) {
-  // Highlight selected number
-  document.querySelectorAll('#num-grid div').forEach(d => {
-    d.style.borderColor = 'var(--border)';
-    d.style.background = 'var(--surface2)';
-    d.style.color = 'var(--text)';
-  });
-  event.target.style.borderColor = 'var(--accent)';
-  event.target.style.background = 'rgba(112,48,160,.2)';
-
-  if (num === 'Other') {
+function selectFromDropdown(val) {
+  if (val === 'manual') {
     document.getElementById('addr1').value = '';
     document.getElementById('addr1').focus();
     return;
   }
-  // Set the first line field
-  document.getElementById('addr1').value = num;
-  toast(`Selected ${num} — confirm address below`);
+  if (val === '') return;
+  const addr = window._pcAddresses[parseInt(val)];
+  if (addr) {
+    document.getElementById('addr1').value = addr.line1;
+    document.getElementById('addrpc').value = addr.postcode;
+    toast('Address selected ✓', 'ok');
+  }
 }
 
 // ═══════════════════════════════════════
