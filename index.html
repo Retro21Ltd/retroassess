@@ -297,24 +297,27 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--fb);min-heigh
     </div>
   </div>
 
-  <button class="cbtn" onclick="trigCam()">📷 TAKE PHOTO</button>
-  <button class="cbtn sec" onclick="trigLib()">🖼️ Add from Library</button>
+  <!-- SECTION HEADER CARD -->
+  <div id="header-card" style="margin-bottom:14px">
+    <canvas id="header-canvas" style="width:100%;border-radius:var(--r);display:block"></canvas>
+    <button class="btn-p" id="btn-save-header" onclick="saveHeaderImage()" style="margin-top:8px;background:var(--surface2);border:2px solid var(--accent);color:var(--accent)">
+      💾 SAVE SECTION HEADER TO CAMERA ROLL
+    </button>
+    <div id="header-saved-msg" style="display:none;text-align:center;font-family:var(--fm);font-size:11px;color:var(--vs);margin-top:4px;letter-spacing:1px">
+      ✓ HEADER SAVED — NOW TAKE YOUR PHOTOS
+    </div>
+  </div>
+
+  <button class="cbtn" id="btn-take-photo" onclick="trigCam()">📷 TAKE PHOTO</button>
+  <button class="cbtn sec" id="btn-add-lib" onclick="trigLib()">🖼️ Add from Library</button>
   <div class="lbl" style="margin-top:14px">Photos Captured (<span id="photo-count">0</span>)</div>
   <div class="pgrid" id="pgrid"></div>
   <div class="fgrp" style="margin-top:6px">
     <label class="flbl">Section Notes</label>
     <textarea class="ntarea" id="sec-notes" placeholder="Optional notes for this section..."></textarea>
   </div>
-  <div class="sharepnl">
-    <h4>📤 Export / Share</h4>
-    <div class="sbrow">
-      <div class="sbtn" onclick="shareTo('rdsap')"><div class="sbtn-i">📊</div><div class="sbtn-l">RdSAP Go</div></div>
-      <div class="sbtn" onclick="shareTo('cr')"><div class="sbtn-i">📋</div><div class="sbtn-l">Condition Report Go</div></div>
-      <div class="sbtn" onclick="saveFiles()"><div class="sbtn-i">📁</div><div class="sbtn-l">Save to Files</div></div>
-      <div class="sbtn" onclick="shareAll()"><div class="sbtn-i">↗️</div><div class="sbtn-l">Share All</div></div>
-    </div>
-  </div>
   <button class="btn-p" onclick="markDone()" style="margin-top:4px">✓ MARK SECTION DONE</button>
+  <button class="btn-p" id="btn-complete" onclick="assessmentComplete()" style="margin-top:4px;background:var(--surface2);border:1px solid var(--border);color:var(--text);display:none">🏁 ASSESSMENT COMPLETE</button>
   <div style="height:36px"></div>
 </div>
 
@@ -390,8 +393,10 @@ function buildSecs(c) {
     if (relevant) s.push({name, tags, group, photos:[], notes:'', done:false, ...opts});
   };
 
-  // PRE-VISIT
-  a('Aborted Visit — Door Card', ['epc','cr','apt','vs'], 'PRE-VISIT');
+  // ON ARRIVAL
+  a('On Arrival — Front Door', ['epc','cr','apt','vs'], 'ON ARRIVAL');
+  a('On Arrival — Tenant / Occupant Interaction', ['epc','cr','apt','vs'], 'ON ARRIVAL');
+  a('On Arrival — Parking / Access Constraints', ['cr'], 'ON ARRIVAL');
 
   // EXTERNAL
   a('Front Elevation + Front Door', ['epc','cr'], 'EXTERNAL');
@@ -539,30 +544,80 @@ function goBack() {
 function renderHome() {
   document.getElementById('datebadge').textContent = new Date().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
   const el = document.getElementById('jobs-list');
+
   if (!S.jobs.length) {
     el.innerHTML = '<div class="empty"><div class="ei">📋</div><h3>No jobs yet</h3><p>Tap NEW JOB to start</p></div>';
     return;
   }
-  el.innerHTML = S.jobs.map(j => {
+
+  const activeJobs = S.jobs.filter(j => !j.completed);
+  const completedJobs = S.jobs.filter(j => j.completed);
+
+  const jobCard = (j, isComplete) => {
     const tot = j.sections.length, done = j.sections.filter(s => s.done).length;
     const ph = j.sections.reduce((a,s) => a + s.photos.length, 0);
     const pct = tot ? Math.round(done/tot*100) : 0;
     const typePills = (j.cfg.types ? Object.entries(j.cfg.types).filter(([,v])=>v).map(([k]) =>
       `<span class="type-pill pill-${k}">${k.toUpperCase()}</span>`).join('') : '');
-    return `<div class="jcard" onclick="openJob('${j.id}')">
-      <div class="jcard-left">
+    const completedDate = j.completed ? new Date(j.completed).toLocaleDateString('en-GB', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
+    return `<div class="jcard" style="${isComplete ? 'opacity:0.75' : ''}">
+      <div class="jcard-left" onclick="openJob('${j.id}')" style="flex:1;cursor:pointer">
         <h3>${j.address.split(',')[0]}</h3>
         <p>${j.address}</p>
         <div class="jcard-types">${typePills}</div>
-        <span class="pbadge">📷 ${ph} photos</span>
+        ${isComplete
+          ? `<span class="pbadge" style="color:var(--vs)">✓ Completed ${completedDate}</span>`
+          : `<span class="pbadge">📷 ${ph} photos</span>`}
       </div>
-      <div style="text-align:right;flex-shrink:0;margin-left:10px">
-        <div class="pbar-wrap"><div class="pbar-fill" style="width:${pct}%"></div></div>
-        <div class="pbar-txt">${done}/${tot}</div>
-        <div class="pbar-txt">${pct}%</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;margin-left:10px">
+        <div style="text-align:right">
+          <div class="pbar-wrap"><div class="pbar-fill" style="width:${pct}%"></div></div>
+          <div class="pbar-txt">${done}/${tot}</div>
+          <div class="pbar-txt">${pct}%</div>
+        </div>
+        <button onclick="confirmRemoveJob('${j.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;padding:4px 8px;cursor:pointer;font-family:var(--fm)">Remove</button>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  let html = '';
+
+  if (activeJobs.length > 0) {
+    html += `<div class="lbl" style="margin-top:8px">Active Jobs (${activeJobs.length})</div>`;
+    html += activeJobs.map(j => jobCard(j, false)).join('');
+  } else {
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center;color:var(--text3);font-size:13px;margin-bottom:8px">No active jobs</div>`;
+  }
+
+  if (completedJobs.length > 0) {
+    html += `<div class="lbl" style="margin-top:16px">Completed Jobs (${completedJobs.length})</div>`;
+    html += completedJobs.map(j => jobCard(j, true)).join('');
+  }
+
+  el.innerHTML = html;
+}
+
+function confirmRemoveJob(id) {
+  const j = S.jobs.find(job => job.id === id);
+  if (!j) return;
+  const ph = j.sections.reduce((a,s) => a + s.photos.length, 0);
+  showMod(`
+    <h3>Remove Job?</h3>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+      <strong style="color:var(--text)">${j.address}</strong><br><br>
+      This will remove the job and all <strong style="color:var(--text)">${ph} photo${ph !== 1 ? 's' : ''}</strong> stored in the app.<br><br>
+      Photos already saved to your camera roll will not be affected.
+    </p>
+    <button class="mbtn danger" onclick="removeJob('${id}')">🗑️ Remove Job</button>
+    <button class="mbtn" onclick="closeMod()">Cancel</button>`);
+}
+
+function removeJob(id) {
+  S.jobs = S.jobs.filter(j => j.id !== id);
+  saveState();
+  closeMod();
+  renderHome();
+  toast('Job removed', 'ok');
 }
 
 // ═══════════════════════════════════════
@@ -779,6 +834,196 @@ function renderCapture() {
   } else { mf.style.display = 'none'; }
 
   renderPGrid(sec);
+  document.getElementById('btn-complete').style.display = 'none';
+
+  // Generate section header card
+  generateHeaderCard(sec, j);
+
+  // Reset header saved state for new section
+  const savedMsg = document.getElementById('header-saved-msg');
+  const saveBtn = document.getElementById('btn-save-header');
+  if (sec.headerSaved) {
+    savedMsg.style.display = 'block';
+    saveBtn.textContent = '✓ Header Already Saved';
+    saveBtn.style.borderColor = 'var(--vs)';
+    saveBtn.style.color = 'var(--vs)';
+  } else {
+    savedMsg.style.display = 'none';
+    saveBtn.textContent = '💾 SAVE SECTION HEADER TO CAMERA ROLL';
+    saveBtn.style.borderColor = 'var(--accent)';
+    saveBtn.style.color = 'var(--accent)';
+  }
+}
+
+function generateHeaderCard(sec, job) {
+  const canvas = document.getElementById('header-canvas');
+  const W = 1080, H = 400;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Purple accent bar top
+  ctx.fillStyle = '#7030A0';
+  ctx.fillRect(0, 0, W, 8);
+
+  // Purple accent bar bottom
+  ctx.fillRect(0, H-8, W, 8);
+
+  // Left accent stripe
+  ctx.fillRect(0, 0, 6, H);
+
+  // RSL ENERGY logo area
+  ctx.fillStyle = '#7030A0';
+  ctx.font = 'bold 36px "Barlow Condensed", Arial';
+  ctx.letterSpacing = '3px';
+  ctx.fillText('RSL', 40, 70);
+  ctx.fillStyle = '#666666';
+  ctx.font = '300 36px "Barlow Condensed", Arial';
+  ctx.fillText(' ENERGY', 95, 70);
+
+  // RetroAssess label
+  ctx.fillStyle = '#444444';
+  ctx.font = '14px "DM Mono", monospace';
+  ctx.fillText('RETROASSESS · FIELD EVIDENCE', 40, 95);
+
+  // Divider line
+  ctx.strokeStyle = '#333333';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(40, 115);
+  ctx.lineTo(W - 40, 115);
+  ctx.stroke();
+
+  // Section name — large
+  ctx.fillStyle = '#f5f5f5';
+  ctx.font = 'bold 72px "Barlow Condensed", Arial';
+  // Break long names across lines
+  const name = sec.name.toUpperCase();
+  const maxW = W - 80;
+  const words = name.split(' ');
+  let line = '', lines = [];
+  ctx.font = 'bold 68px "Barlow Condensed", Arial';
+  for (const word of words) {
+    const test = line + (line ? ' ' : '') + word;
+    if (ctx.measureText(test).width > maxW && line) {
+      lines.push(line);
+      line = word;
+    } else { line = test; }
+  }
+  if (line) lines.push(line);
+
+  // Scale font if too many lines
+  const fontSize = lines.length > 2 ? 48 : 68;
+  ctx.font = `bold ${fontSize}px "Barlow Condensed", Arial`;
+  ctx.fillStyle = '#f5f5f5';
+  const lineH = fontSize + 8;
+  const startY = 175 - ((lines.length - 1) * lineH / 2);
+  lines.forEach((l, i) => ctx.fillText(l, 40, startY + i * lineH));
+
+  // Assessment type tags
+  const tags = sec.tags || [];
+  const tagColors = {epc:'#4a9fd4', cr:'#9040c0', apt:'#e8671a', vs:'#2ecc71'};
+  let tagX = 40;
+  ctx.font = 'bold 18px "DM Mono", monospace';
+  tags.forEach(t => {
+    const label = t.toUpperCase();
+    const tw = ctx.measureText(label).width + 24;
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    roundRect(ctx, tagX, 265, tw, 28, 4);
+    ctx.fillStyle = tagColors[t] || '#888';
+    ctx.fillText(label, tagX + 12, 284);
+    tagX += tw + 8;
+  });
+
+  // Divider
+  ctx.strokeStyle = '#333333';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(40, 308);
+  ctx.lineTo(W - 40, 308);
+  ctx.stroke();
+
+  // Property address
+  ctx.fillStyle = '#a8a8a8';
+  ctx.font = '22px "Barlow", Arial';
+  ctx.fillText(job.address, 40, 340);
+
+  // Date and time
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'long', year:'numeric'});
+  const timeStr = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  ctx.fillStyle = '#555555';
+  ctx.font = '18px "DM Mono", monospace';
+  ctx.fillText(`${dateStr} · ${timeStr}`, 40, 372);
+
+  // Section number top right
+  const j = getJob();
+  if (j) {
+    ctx.fillStyle = '#333333';
+    ctx.font = '20px "DM Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`SECTION ${S.curSec + 1} / ${j.sections.length}`, W - 40, 70);
+    ctx.textAlign = 'left';
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+  ctx.fill();
+}
+
+async function saveHeaderImage() {
+  const canvas = document.getElementById('header-canvas');
+  const j = getJob();
+  const sec = getSec();
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  const fname = `RSL_HEADER_${j.address.split(',')[0].replace(/[^a-z0-9]/gi,'_')}_${sec.name.replace(/[^a-z0-9]/gi,'_')}.jpg`;
+
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], fname, {type:'image/jpeg'});
+
+    if (navigator.canShare && navigator.canShare({files:[file]})) {
+      await navigator.share({
+        files: [file],
+        title: `Section Header — ${sec.name}`,
+        text: `${sec.name} · ${j.address}`
+      });
+      // Mark header as saved
+      sec.headerSaved = true;
+      saveState();
+      document.getElementById('header-saved-msg').style.display = 'block';
+      const btn = document.getElementById('btn-save-header');
+      btn.textContent = '✓ Header Already Saved';
+      btn.style.borderColor = 'var(--vs)';
+      btn.style.color = 'var(--vs)';
+      toast('Header saved to camera roll ✓', 'ok');
+    } else {
+      // Fallback — download
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = fname;
+      a.click();
+      toast('Header downloaded', 'ok');
+    }
+  } catch(e) {
+    if (e.name !== 'AbortError') toast('Save failed — try again', 'warn');
+  }
 }
 
 function navigateSec(dir) {
@@ -1021,7 +1266,17 @@ function completeSectionDone() {
   j.sections[S.curSec].done = true;
   saveState();
   toast('Section done ✓', 'ok');
-  // Auto advance to next undone section or go back
+
+  // Check if all sections are now done
+  const allDone = j.sections.every(s => s.done);
+  if (allDone) {
+    // Show assessment complete button
+    document.getElementById('btn-complete').style.display = 'flex';
+    toast('All sections complete! 🎉', 'ok');
+    return;
+  }
+
+  // Auto advance to next undone section
   const next = j.sections.findIndex((s,i) => i > S.curSec && !s.done);
   if (next !== -1) {
     setTimeout(() => {
@@ -1030,8 +1285,68 @@ function completeSectionDone() {
       window.scrollTo(0,0);
     }, 600);
   } else {
-    setTimeout(() => goBack(), 700);
+    // No more undone sections ahead — check behind
+    const anyUndone = j.sections.findIndex(s => !s.done);
+    if (anyUndone !== -1) {
+      setTimeout(() => {
+        S.curSec = anyUndone;
+        renderCapture();
+        window.scrollTo(0,0);
+      }, 600);
+    } else {
+      document.getElementById('btn-complete').style.display = 'flex';
+      toast('All sections complete! 🎉', 'ok');
+    }
   }
+}
+
+function assessmentComplete() {
+  const j = getJob();
+  const total = j.sections.length;
+  const done = j.sections.filter(s => s.done).length;
+  const photos = j.sections.reduce((a,s) => a + s.photos.length, 0);
+  const undone = total - done;
+
+  if (undone > 0) {
+    showMod(`
+      <h3>🏁 Complete Assessment?</h3>
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+        <strong style="color:var(--warn)">${undone} section${undone > 1 ? 's' : ''} not yet marked done.</strong><br><br>
+        ${photos} photos captured across ${done} sections.<br><br>
+        Are you sure you want to finish this assessment?
+      </p>
+      <button class="mbtn" style="background:var(--accent);color:#fff;border-color:var(--accent)" onclick="finishAssessment()">
+        🏁 Yes — Complete Assessment
+      </button>
+      <button class="mbtn" onclick="closeMod()">← Go Back</button>`);
+  } else {
+    showMod(`
+      <h3>🏁 Assessment Complete!</h3>
+      <p style="font-size:14px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+        All ${total} sections done.<br>
+        ${photos} photos captured.<br><br>
+        Great work — returning to home screen.
+      </p>
+      <button class="mbtn" style="background:var(--accent);color:#fff;border-color:var(--accent)" onclick="finishAssessment()">
+        🏠 Return to Home
+      </button>`);
+  }
+}
+
+function finishAssessment() {
+  closeMod();
+  // Mark job as completed
+  const j = getJob();
+  j.completed = new Date().toISOString();
+  saveState();
+  // Go all the way back to home
+  scrStack = ['scr-home'];
+  document.querySelectorAll('.scr').forEach(s => s.classList.remove('active'));
+  document.getElementById('scr-home').classList.add('active');
+  document.getElementById('btn-back').style.display = 'none';
+  renderHome();
+  window.scrollTo(0,0);
+  toast('Assessment complete ✓', 'ok');
 }
 
 // ═══════════════════════════════════════
@@ -1105,7 +1420,7 @@ function showJobMenu() {
     </div>
     <button class="mbtn" onclick="exportSum();closeMod()">📄 Export Summary</button>
     <button class="mbtn" onclick="resetJob();closeMod()">🔄 Reset Progress</button>
-    <button class="mbtn danger" onclick="delJob();closeMod()">🗑️ Delete Job</button>
+    <button class="mbtn danger" onclick="closeMod();confirmRemoveJob('${j.id}')">🗑️ Remove Job</button>
     <button class="mbtn" onclick="closeMod()">Cancel</button>`);
 }
 
