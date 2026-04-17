@@ -164,10 +164,10 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--fb);min-heigh
 .cond-sel.further{border-color:#4a9fd4;background:rgba(74,159,212,.1);color:#4a9fd4}
 @media print{
   body{background:#fff!important;color:#000!important;font-family:Arial,sans-serif!important}
-  .hdr,.btn-back,.toast,.moverlay{display:none!important}
+  .hdr,.btn-back,.toast,.moverlay,.rpt-actions{display:none!important}
   .scr{display:none!important;padding:0!important}
   #scr-report{display:block!important}
-  .rpt-page{page-break-after:always;padding:20mm;box-sizing:border-box}
+  .rpt-page{page-break-after:always;padding:0;box-sizing:border-box}
   .rpt-page:last-child{page-break-after:avoid}
 }
 </style>
@@ -373,7 +373,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--fb);min-heigh
 <!-- REPORT SCREEN (print target) -->
 <div class="scr" id="scr-report">
   <div id="report-content"></div>
-  <div style="padding:16px;max-width:860px;margin:0 auto">
+  <div class="rpt-actions" style="padding:16px;max-width:860px;margin:0 auto">
     <button class="btn-p" onclick="window.print()" style="margin-bottom:8px">&#x1F5A8;&#xFE0F; PRINT / SAVE AS PDF</button>
     <button class="btn-p" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)" onclick="goBack()">&#x2190; Back to Job</button>
   </div>
@@ -632,10 +632,14 @@ function renderHome() {
     const pct = tot ? Math.round(done/tot*100) : 0;
     const typePills = (j.cfg.types ? Object.entries(j.cfg.types).filter(([,v])=>v).map(([k]) =>
       `<span class="type-pill pill-${k}">${k.toUpperCase()}</span>`).join('') : '');
+    // Full assessment type label for display next to address
+    const typeLabels = {epc:'EPC', cr:'Condition Report', apt:'Air Pressure Test', vs:'Ventilation Survey'};
+    const typeNames = j.cfg.types ? Object.entries(j.cfg.types).filter(([,v])=>v).map(([k])=>typeLabels[k]).join(' + ') : '';
     const completedDate = j.completed ? new Date(j.completed).toLocaleDateString('en-GB', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
     return `<div class="jcard" style="${isComplete ? 'opacity:0.75' : ''}">
       <div class="jcard-left" onclick="openJob('${j.id}')" style="flex:1;cursor:pointer">
         <h3>${j.address.split(',')[0]}</h3>
+        <p style="color:var(--text3);margin-bottom:2px">${typeNames}</p>
         <p>${j.address}</p>
         <div class="jcard-types">${typePills}</div>
         ${isComplete
@@ -928,12 +932,15 @@ function renderCapture() {
   renderPGrid(sec);
   document.getElementById('btn-complete').style.display = 'none';
 
-  // Condition summary — hide for occupancy sections
+  // Condition summary — only on FIRST section of each group, not for APT/VS/Occupancy groups
   const condWrap = document.getElementById('cond-wrap');
   const condSel = document.getElementById('cond-sel');
-  if (!sec.isOccupancy) {
+  const noCondGroups = ['AIR PRESSURE TEST', 'VENTILATION SURVEY', 'OCCUPANCY'];
+  const isFirstInGroup = S.curSec === 0 || j.sections[S.curSec - 1].group !== sec.group;
+  const showCond = isFirstInGroup && !sec.isOccupancy && !noCondGroups.includes(sec.group);
+  if (showCond) {
     condWrap.style.display = 'block';
-    condSel.value = sec.condition || '';
+    condSel.value = sec.groupCondition || '';
     applyCondStyle(condSel);
   } else {
     condWrap.style.display = 'none';
@@ -1224,10 +1231,10 @@ document.getElementById('camera-input').addEventListener('change', function(e) {
         if (done === files.length) {
           saveState();
           renderPGrid(sec);
-          toast(`${files.length} photo${files.length > 1 ? 's' : ''} added`, 'ok');
+          toast(`${files.length} photo${files.length > 1 ? 's' : ''} added — saving to Photos...`, 'ok');
 
-          // Auto-trigger save to camera roll for each photo
-          setTimeout(() => savePhotosToCameraRoll(processedFiles, sec, j), 500);
+          // Auto-trigger save to camera roll — delay gives iOS camera UI time to fully dismiss
+          setTimeout(() => savePhotosToCameraRoll(processedFiles, sec, j), 1200);
         }
       };
       img.src = ev.target.result;
@@ -1287,9 +1294,11 @@ function saveSec() {
   const sec = j.sections[S.curSec];
   if (!sec) return;
   sec.notes = document.getElementById('sec-notes').value;
-  // Condition summary
-  if (!sec.isOccupancy) {
-    sec.condition = document.getElementById('cond-sel').value;
+  // Condition summary — stored on first section of each group
+  const noCondGroups = ['AIR PRESSURE TEST', 'VENTILATION SURVEY', 'OCCUPANCY'];
+  const isFirst = S.curSec === 0 || j.sections[S.curSec - 1].group !== sec.group;
+  if (isFirst && !sec.isOccupancy && !noCondGroups.includes(sec.group)) {
+    sec.groupCondition = document.getElementById('cond-sel').value;
   }
   if (sec.isBore) {
     sec.boreData = {
@@ -1679,82 +1688,89 @@ function generatePDFReport() {
   if (!j) { toast('No job selected', 'warn'); return; }
 
   const assessmentDate = new Date(j.created).toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'});
-  const assessmentTypes = j.cfg.types ? Object.entries(j.cfg.types).filter(([,v])=>v).map(([k])=>k.toUpperCase()).join(' / ') : 'N/A';
+  const activeTypes = j.cfg.types ? Object.entries(j.cfg.types).filter(([,v])=>v).map(([k])=>k) : [];
+
+  // Note 4 — report title reflects the assessment type(s)
+  const titleMap = {
+    cr: 'Condition Report',
+    epc: 'Energy Performance Assessment',
+    apt: 'Air Pressure Test',
+    vs: 'Ventilation Survey'
+  };
+  let reportTitle;
+  if (activeTypes.length === 1) {
+    reportTitle = titleMap[activeTypes[0]] || activeTypes[0].toUpperCase();
+  } else {
+    reportTitle = activeTypes.map(t => titleMap[t] || t.toUpperCase()).join(' / ');
+  }
+
   const totalPhotos = j.sections.reduce((a,s)=>a+s.photos.length,0);
   const occupancySec = j.sections.find(s => s.isOccupancy);
   const occ = occupancySec && occupancySec.occupancyData ? occupancySec.occupancyData : null;
+  const hasAPT = activeTypes.includes('apt');
 
-  // Group sections by group (skip occupancy from main body — handled separately)
+  // Group sections (skip occupancy from main body)
   const grouped = {};
   j.sections.filter(s => !s.isOccupancy).forEach(s => {
     if (!grouped[s.group]) grouped[s.group] = [];
     grouped[s.group].push(s);
   });
 
-  // ── Cover Page ──────────────────────────────────────────────────
-  let html = `
-  <div class="rpt-page" style="background:#fff;min-height:297mm;position:relative;font-family:Arial,Helvetica,sans-serif">
-    <!-- Header bar -->
-    <div style="background:#7030A0;padding:18px 24px;margin:-20mm -20mm 0;display:flex;align-items:center;justify-content:space-between">
+  const pg = (content) => `<div class="rpt-page" style="background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1a1a1a;padding:16mm 18mm 14mm">${content}</div>`;
+
+  const hdr = (addr, date) => `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #7030A0">
       <div>
-        <div style="font-size:28px;font-weight:900;letter-spacing:3px;color:#fff;line-height:1">RSL<span style="font-weight:300"> ENERGY</span></div>
-        <div style="font-size:10px;color:rgba(255,255,255,0.65);letter-spacing:2px;margin-top:3px">TrustMark Registered · 2847333</div>
+        <div style="font-size:22px;font-weight:900;letter-spacing:3px;color:#7030A0;line-height:1">RSL<span style="font-weight:300"> ENERGY</span></div>
+        <div style="font-size:9px;color:#999;letter-spacing:2px;margin-top:2px">TrustMark Registered · 2847333 · PAS2035</div>
+      </div>
+      <div style="text-align:right;font-size:10px;color:#888;margin-top:4px">
+        <div>${addr}</div><div style="margin-top:2px">${date}</div>
+      </div>
+    </div>`;
+
+  const ftr = (addr, date, pageLabel) => `
+    <div style="margin-top:14px;padding-top:7px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:9px;color:#aaa">
+      <span>RSL Energy Ltd · TM 2847333 · PAS2035:2023</span>
+      <span>${addr} · ${date}</span>
+      ${pageLabel ? `<span>${pageLabel}</span>` : ''}
+    </div>`;
+
+  // ── Cover Page ──────────────────────────────────────────────────
+  let html = pg(`
+    <div style="background:#7030A0;margin:-16mm -18mm 0;padding:20px 24px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:30px;font-weight:900;letter-spacing:3px;color:#fff;line-height:1">RSL<span style="font-weight:300"> ENERGY</span></div>
+        <div style="font-size:10px;color:rgba(255,255,255,.6);letter-spacing:2px;margin-top:3px">TrustMark Registered · 2847333</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:11px;color:rgba(255,255,255,.7);letter-spacing:1px">PAS2035 COMPLIANT</div>
-        <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">RetroAssess v3</div>
+        <div style="font-size:9px;color:rgba(255,255,255,.4);margin-top:2px">RetroAssess v3</div>
       </div>
     </div>
 
-    <!-- Document type band -->
-    <div style="background:#f0e6f8;border-left:5px solid #7030A0;padding:12px 20px;margin:24px 0 0">
-      <div style="font-size:22px;font-weight:900;letter-spacing:2px;color:#7030A0">RETROFIT CONDITION REPORT</div>
-      <div style="font-size:11px;color:#888;margin-top:2px;letter-spacing:1px">ASSESSMENT EVIDENCE · ${assessmentTypes}</div>
+    <div style="background:#f0e6f8;border-left:5px solid #7030A0;padding:14px 20px;margin:28px 0 24px">
+      <div style="font-size:24px;font-weight:900;letter-spacing:2px;color:#7030A0;text-transform:uppercase">${reportTitle}</div>
+      <div style="font-size:11px;color:#888;margin-top:3px;letter-spacing:1px">ASSESSMENT EVIDENCE · PAS2035:2023</div>
     </div>
 
-    <!-- Property details box -->
-    <div style="border:1px solid #ddd;border-radius:6px;padding:20px;margin-top:24px">
-      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#7030A0;margin-bottom:12px;text-transform:uppercase">Property Details</div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr>
-          <td style="padding:5px 0;color:#666;width:38%">Address</td>
-          <td style="padding:5px 0;font-weight:700;color:#111">${j.address}</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;color:#666">Property Type</td>
-          <td style="padding:5px 0;font-weight:600">${j.cfg.ptype}</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;color:#666">Bedrooms</td>
-          <td style="padding:5px 0">${j.cfg.beds}</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;color:#666">Assessment Type(s)</td>
-          <td style="padding:5px 0;font-weight:600;color:#7030A0">${assessmentTypes}</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;color:#666">Date of Assessment</td>
-          <td style="padding:5px 0">${assessmentDate}</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;color:#666">Assessor</td>
-          <td style="padding:5px 0">${j.assessor || '—'}</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;color:#666">TrustMark Number</td>
-          <td style="padding:5px 0">2847333</td>
-        </tr>
-        <tr>
-          <td style="padding:5px 0;color:#666">Total Photos Captured</td>
-          <td style="padding:5px 0">${totalPhotos}</td>
-        </tr>
+    <div style="border:1px solid #ddd;border-radius:6px;padding:18px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;color:#7030A0;margin-bottom:10px;text-transform:uppercase">Property Details</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr><td style="padding:5px 0;color:#666;width:40%">Address</td><td style="padding:5px 0;font-weight:700;color:#111">${j.address}</td></tr>
+        <tr><td style="padding:5px 0;color:#666">Property Type</td><td style="padding:5px 0;font-weight:600">${j.cfg.ptype}</td></tr>
+        <tr><td style="padding:5px 0;color:#666">Bedrooms</td><td style="padding:5px 0">${j.cfg.beds}</td></tr>
+        <tr><td style="padding:5px 0;color:#666">Assessment Type(s)</td><td style="padding:5px 0;font-weight:600;color:#7030A0">${reportTitle}</td></tr>
+        <tr><td style="padding:5px 0;color:#666">Date of Assessment</td><td style="padding:5px 0">${assessmentDate}</td></tr>
+        <tr><td style="padding:5px 0;color:#666">Assessor</td><td style="padding:5px 0">${j.assessor || '—'}</td></tr>
+        <tr><td style="padding:5px 0;color:#666">TrustMark Number</td><td style="padding:5px 0">2847333</td></tr>
+        <tr><td style="padding:5px 0;color:#666">Total Photos Captured</td><td style="padding:5px 0">${totalPhotos}</td></tr>
       </table>
     </div>
 
-    ${occ ? `<!-- Occupancy summary on cover -->
-    <div style="border:1px solid #ddd;border-radius:6px;padding:20px;margin-top:16px">
-      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#7030A0;margin-bottom:12px;text-transform:uppercase">Occupancy Assessment — PAS2035</div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
+    ${occ ? `<div style="border:1px solid #ddd;border-radius:6px;padding:18px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;color:#7030A0;margin-bottom:10px;text-transform:uppercase">Occupancy Assessment — PAS2035</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
         <tr><td style="padding:4px 0;color:#666;width:50%">Total Occupants</td><td style="padding:4px 0;font-weight:600">${occ.totalOccupants||'—'}</td></tr>
         <tr><td style="padding:4px 0;color:#666">Children Under 18</td><td style="padding:4px 0">${occ.childrenUnder18||'—'}</td></tr>
         <tr><td style="padding:4px 0;color:#666">Of Pensionable Age</td><td style="padding:4px 0">${occ.pensionableAge||'—'}</td></tr>
@@ -1763,129 +1779,135 @@ function generatePDFReport() {
       </table>
     </div>` : ''}
 
-    <!-- Footer -->
-    <div style="position:absolute;bottom:20mm;left:20mm;right:20mm;border-top:1px solid #eee;padding-top:10px;display:flex;justify-content:space-between;font-size:10px;color:#aaa">
-      <span>RSL Energy Ltd · TrustMark 2847333 · PAS2035</span>
+    ${hasAPT ? `<div style="border:1px solid #f5d9c8;border-radius:6px;padding:18px;margin-bottom:16px;background:#fffaf7">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;color:#e8671a;margin-bottom:10px;text-transform:uppercase">Test Equipment &amp; Method — Air Pressure Test</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr><td style="padding:4px 0;color:#666;width:50%">Controller</td><td style="padding:4px 0;font-weight:600">PUL-V2-CON</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Controller Serial No.</td><td style="padding:4px 0">40010904.3.0</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Air Receiver</td><td style="padding:4px 0">1PUL-V2-AR (39.8L)</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Air Receiver Serial No.</td><td style="padding:4px 0">2001120</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Test Method</td><td style="padding:4px 0">Low Pressure Pulse</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Test Type</td><td style="padding:4px 0">Air Pressure Test – CIBSE TM23 (LPP)</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Test Purpose</td><td style="padding:4px 0">Retrofit Project – Energy Assessment – PAS 2035</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Openings Preparation</td><td style="padding:4px 0">Closed or Temporarily Sealed</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Ventilation Preparation</td><td style="padding:4px 0">Closed or Temporarily Sealed</td></tr>
+        <tr><td style="padding:4px 0;color:#666">Geometry Source</td><td style="padding:4px 0">Measured On Site</td></tr>
+      </table>
+    </div>` : ''}
+
+    <div style="position:absolute;bottom:14mm;left:18mm;right:18mm;border-top:1px solid #eee;padding-top:8px;display:flex;justify-content:space-between;font-size:9px;color:#aaa">
+      <span>RSL Energy Ltd · TrustMark 2847333 · PAS2035:2023</span>
       <span>Generated by RetroAssess v3</span>
     </div>
-  </div>`;
+  `);
 
   // ── Section Pages ───────────────────────────────────────────────
   for (const [groupName, sections] of Object.entries(grouped)) {
-    // Group header page start
-    html += `<div class="rpt-page" style="background:#fff;font-family:Arial,Helvetica,sans-serif;padding-top:10mm">`;
+    // Get condition from first section of this group
+    const firstSec = sections[0];
+    const groupCond = firstSec.groupCondition || '';
+    const noCondGroups = ['AIR PRESSURE TEST', 'VENTILATION SURVEY'];
+    const showGroupCond = !noCondGroups.includes(groupName);
 
-    // Group heading
-    html += `<div style="background:#7030A0;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;margin-bottom:0">
-      <div style="font-size:14px;font-weight:900;letter-spacing:2px">${groupName}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:2px">${j.address} · ${assessmentDate}</div>
-    </div>`;
+    let content = hdr(j.address, assessmentDate);
 
-    // RSL Energy sub-header strip
-    html += `<div style="background:#f0e6f8;padding:5px 16px;margin-bottom:14px;font-size:10px;color:#7030A0;letter-spacing:1px;display:flex;justify-content:space-between">
-      <span>RSL ENERGY · TM 2847333</span><span>${assessmentTypes}</span>
+    // Group heading bar
+    content += `<div style="background:#7030A0;color:#fff;padding:9px 14px;border-radius:5px 5px 0 0;margin-bottom:0">
+      <div style="font-size:15px;font-weight:900;letter-spacing:2px">${groupName}</div>
+    </div>
+    <div style="background:#f0e6f8;padding:5px 14px;border-radius:0 0 5px 5px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:10px;color:#7030A0;letter-spacing:1px">RSL ENERGY · TM 2847333</span>
+      ${showGroupCond && groupCond ? `<span style="font-size:10px;font-weight:700;padding:2px 10px;border-radius:10px;background:${COND_BG[groupCond]};color:${COND_COLORS[groupCond]};border:1px solid ${COND_COLORS[groupCond]}">Condition: ${COND_LABELS[groupCond]}</span>` : ''}
     </div>`;
 
     sections.forEach(sec => {
       const hasPhotos = sec.photos && sec.photos.length > 0;
 
-      // Section sub-header
-      html += `<div style="border-left:4px solid #7030A0;padding:8px 12px;margin-bottom:10px;background:#fafafa">
-        <div style="font-size:14px;font-weight:700;color:#1a1a1a">${sec.name}</div>
-        <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          ${condBadge(sec.condition||'')}
-          ${sec.tags.map(t=>`<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:#f0e6f8;color:#7030A0">${t.toUpperCase()}</span>`).join('')}
-          <span style="font-size:10px;color:#888">${hasPhotos ? '📷 ' + sec.photos.length + ' photo' + (sec.photos.length>1?'s':'') : 'No photos'}</span>
-          ${sec.done ? '<span style="font-size:10px;color:#2ecc71;font-weight:700">✓ DONE</span>' : ''}
-        </div>
+      // Section sub-header — Note 5: no tag badges, no photo count text
+      content += `<div style="border-left:4px solid #7030A0;padding:7px 12px;margin-bottom:8px;background:#fafafa">
+        <div style="font-size:13px;font-weight:700;color:#1a1a1a">${sec.name}</div>
       </div>`;
 
       // Borescope data
       if (sec.isBore && sec.boreData && (sec.boreData.ins || sec.boreData.pct)) {
-        html += `<div style="background:#f5edfc;border:1px solid #d4a8f0;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:12px">
-          <div style="font-weight:700;color:#7030A0;margin-bottom:4px;letter-spacing:1px;font-size:11px">BORESCOPE DATA</div>
-          <div>Insulation Type: <strong>${sec.boreData.ins||'—'}</strong> &nbsp;|&nbsp; Coverage: <strong>${sec.boreData.pct||'—'}</strong></div>
-          ${sec.boreData.notes ? `<div style="margin-top:3px;color:#555">${sec.boreData.notes}</div>` : ''}
+        content += `<div style="background:#f5edfc;border:1px solid #d4a8f0;border-radius:4px;padding:8px 12px;margin-bottom:10px">
+          <div style="font-weight:700;color:#7030A0;margin-bottom:4px;letter-spacing:1px;font-size:10px">BORESCOPE DATA</div>
+          <div style="font-size:12px">Insulation Type: <strong>${sec.boreData.ins||'—'}</strong> &nbsp;|&nbsp; Coverage: <strong>${sec.boreData.pct||'—'}</strong></div>
+          ${sec.boreData.notes ? `<div style="margin-top:3px;font-size:11px;color:#555">${sec.boreData.notes}</div>` : ''}
         </div>`;
       }
 
       // Meter data
       if (sec.isMeter && sec.meterData && sec.meterData.type) {
-        html += `<div style="background:#e8f4fc;border:1px solid #a8d4f0;border-radius:4px;padding:8px 12px;margin-bottom:10px;font-size:12px">
-          <div style="font-weight:700;color:#4a9fd4;margin-bottom:4px;letter-spacing:1px;font-size:11px">METER DETAILS</div>
-          <div>Type: <strong>${sec.meterData.type||'—'}</strong> &nbsp;|&nbsp; Reference: <strong>${sec.meterData.ref||'—'}</strong></div>
+        content += `<div style="background:#e8f4fc;border:1px solid #a8d4f0;border-radius:4px;padding:8px 12px;margin-bottom:10px">
+          <div style="font-weight:700;color:#4a9fd4;margin-bottom:4px;letter-spacing:1px;font-size:10px">METER DETAILS</div>
+          <div style="font-size:12px">Type: <strong>${sec.meterData.type||'—'}</strong> &nbsp;|&nbsp; Reference: <strong>${sec.meterData.ref||'—'}</strong></div>
         </div>`;
       }
 
       // Notes
       if (sec.notes && sec.notes.trim()) {
-        html += `<div style="background:#fff9e6;border-left:3px solid #f59332;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#333;line-height:1.5">
-          <strong style="color:#c8780a;font-size:11px;letter-spacing:1px">ASSESSOR NOTES</strong><br>${sec.notes}
+        content += `<div style="background:#fff9e6;border-left:3px solid #f59332;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#333;line-height:1.5">
+          <strong style="color:#c8780a;font-size:10px;letter-spacing:1px;display:block;margin-bottom:3px">ASSESSOR NOTES</strong>${sec.notes}
         </div>`;
       }
 
       // Photos — 2 per row
       if (hasPhotos) {
-        html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">`;
+        content += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">`;
         sec.photos.forEach((p, i) => {
-          html += `<div style="break-inside:avoid">
+          content += `<div style="break-inside:avoid">
             <img src="${p.d}" style="width:100%;border-radius:4px;border:1px solid #ddd;display:block" alt="Photo ${i+1}">
-            <div style="font-size:9px;color:#888;padding:3px 4px;background:#f9f9f9;border:1px solid #eee;border-top:none;border-radius:0 0 4px 4px">
-              📷 Photo ${i+1} · ${p.t || ''}
-            </div>
+            <div style="font-size:9px;color:#888;padding:3px 5px;background:#f9f9f9;border:1px solid #eee;border-top:none;border-radius:0 0 4px 4px">Photo ${i+1} · ${p.t||''}</div>
           </div>`;
         });
-        html += `</div>`;
+        content += `</div>`;
       }
 
-      html += `<div style="border-bottom:1px solid #eee;margin-bottom:16px"></div>`;
+      // Spacer between sections
+      content += `<div style="border-bottom:1px solid #eee;margin-bottom:14px"></div>`;
     });
 
-    // Page footer
-    html += `<div style="margin-top:auto;border-top:1px solid #eee;padding-top:8px;display:flex;justify-content:space-between;font-size:9px;color:#aaa">
-      <span>RSL Energy Ltd · TrustMark 2847333 · PAS2035</span>
-      <span>${j.address} · ${assessmentDate}</span>
-    </div>`;
-    html += `</div>`;
+    content += ftr(j.address, assessmentDate);
+    html += pg(content);
   }
 
   // ── Disclaimer Page ─────────────────────────────────────────────
-  html += `<div class="rpt-page" style="background:#fff;font-family:Arial,Helvetica,sans-serif">
-    <div style="background:#7030A0;color:#fff;padding:10px 16px;border-radius:6px;margin-bottom:20px">
+  html += pg(`
+    ${hdr(j.address, assessmentDate)}
+    <div style="background:#7030A0;color:#fff;padding:9px 14px;border-radius:5px;margin-bottom:18px">
       <div style="font-size:14px;font-weight:900;letter-spacing:2px">DISCLAIMER &amp; ASSESSOR DECLARATION</div>
     </div>
     <div style="font-size:12px;color:#333;line-height:1.8">
       <p style="margin-bottom:10px">This report has been prepared by RSL Energy Ltd (TrustMark Registered Business No. 2847333) in accordance with PAS2035:2023 — Retrofitting dwellings for improved energy efficiency: Specification and guidance.</p>
-      <p style="margin-bottom:10px">This Condition Report is based on a visual inspection carried out at the above property on the date stated. The assessment covers the elements of the property that were visible and accessible at the time of inspection. No investigative or intrusive survey work was undertaken unless explicitly stated.</p>
-      <p style="margin-bottom:10px">The assessor accepts no responsibility for defects or conditions that were concealed, inaccessible, or not reasonably apparent at the time of inspection. The findings are the professional opinion of the assessor based on the information available at the time.</p>
+      <p style="margin-bottom:10px">This ${reportTitle} is based on a visual inspection carried out at the above property on the date stated. The assessment covers elements that were visible and accessible at the time of inspection. No investigative or intrusive survey work was undertaken unless explicitly stated.</p>
+      <p style="margin-bottom:10px">The assessor accepts no responsibility for defects or conditions that were concealed, inaccessible, or not reasonably apparent at the time of inspection. Findings are the professional opinion of the assessor based on information available at the time.</p>
       <p style="margin-bottom:10px">This report is intended solely for use by the commissioning party and their appointed Retrofit Coordinator. It should not be relied upon by third parties without written consent from RSL Energy Ltd.</p>
-      <p style="margin-bottom:10px">RSL Energy Ltd holds appropriate Professional Indemnity Insurance and Public Liability Insurance. All assessments are carried out by qualified assessors who hold relevant accreditation.</p>
-      <p style="margin-bottom:20px">Photographs included in this report were taken at the time of inspection and form part of the evidentiary record for PAS2035 compliance.</p>
+      <p style="margin-bottom:10px">RSL Energy Ltd holds appropriate Professional Indemnity Insurance and Public Liability Insurance. All assessments are carried out by qualified assessors holding relevant accreditation.</p>
+      <p style="margin-bottom:16px">Photographs included in this report were taken at the time of inspection and form part of the evidentiary record for PAS2035 compliance.</p>
     </div>
-    <div style="border:1px solid #ddd;border-radius:6px;padding:16px;margin-top:12px">
-      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#7030A0;margin-bottom:12px">ASSESSOR DECLARATION</div>
+    <div style="border:1px solid #ddd;border-radius:6px;padding:16px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;color:#7030A0;margin-bottom:10px">ASSESSOR DECLARATION</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <tr><td style="padding:5px 0;color:#666;width:40%">Assessor Name</td><td style="padding:5px 0;font-weight:600">${j.assessor || '—'}</td></tr>
+        <tr><td style="padding:5px 0;color:#666;width:42%">Assessor Name</td><td style="padding:5px 0;font-weight:600">${j.assessor||'—'}</td></tr>
         <tr><td style="padding:5px 0;color:#666">Company</td><td style="padding:5px 0">RSL Energy Ltd</td></tr>
         <tr><td style="padding:5px 0;color:#666">TrustMark Number</td><td style="padding:5px 0">2847333</td></tr>
         <tr><td style="padding:5px 0;color:#666">Date of Assessment</td><td style="padding:5px 0">${assessmentDate}</td></tr>
-        <tr><td style="padding:5px 0;color:#666">Date of Report</td><td style="padding:5px 0">${new Date().toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'})}</td></tr>
+        <tr><td style="padding:5px 0;color:#666">Date of Report</td><td style="padding:5px 0">${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</td></tr>
         <tr><td style="padding:5px 0;color:#666">Standard Reference</td><td style="padding:5px 0">PAS2035:2023</td></tr>
       </table>
-      <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
-        <div style="border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666">Assessor Signature</div>
-        <div style="border-top:1px solid #333;padding-top:6px;font-size:11px;color:#666">Date</div>
+      <div style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div style="border-top:1px solid #333;padding-top:5px;font-size:10px;color:#666">Assessor Signature</div>
+        <div style="border-top:1px solid #333;padding-top:5px;font-size:10px;color:#666">Date</div>
       </div>
     </div>
-    <div style="margin-top:24px;font-size:9px;color:#aaa;text-align:center">
-      RSL Energy Ltd · TrustMark 2847333 · PAS2035:2023 · Generated by RetroAssess v3 · ${new Date().toLocaleDateString('en-GB')}
-    </div>
-  </div>`;
+    ${ftr(j.address, assessmentDate)}
+  `);
 
   document.getElementById('report-content').innerHTML = html;
   showScr('scr-report');
   window.scrollTo(0,0);
-  toast('Report generated — tap Print / Save as PDF', 'ok');
+  toast('Report ready — tap Print / Save as PDF', 'ok');
 }
 
 
